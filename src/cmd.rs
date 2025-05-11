@@ -3,6 +3,7 @@ mod compile;
 mod inspect;
 mod server;
 mod version;
+mod json;
 
 use argh::FromArgs;
 
@@ -12,8 +13,9 @@ use argh::FromArgs;
 pub enum Command {
     Compile(compile::CompileCommand),
     Inspect(inspect::InspectCommand),
-    // Server(ServerCommand),
+    Server(server::ServerCommand),
     Client(client::ClientCommand),
+    Json(json::JsonCommand),
     Version(version::VersionCommand),
 }
 

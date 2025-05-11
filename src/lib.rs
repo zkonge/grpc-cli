@@ -1,5 +1,8 @@
 mod cmd;
 mod codec;
+mod descriptor_set;
+mod json;
+mod static_server;
 mod util;
 
 use argh::FromArgs;
@@ -28,7 +31,9 @@ impl App {
         let cmd: &dyn Executable = match &app.command {
             Command::Compile(x) => x,
             Command::Inspect(x) => x,
+            Command::Json(x) => x,
             Command::Client(x) => x,
+            Command::Server(x) => x,
             Command::Version(x) => x,
         };
 

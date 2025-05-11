@@ -1,11 +1,11 @@
 use std::{path::PathBuf, str::FromStr};
 
-use anyhow::Context;
 use argh::FromArgs;
-use prost_reflect::{DescriptorPool, Kind};
+use prost_reflect::Kind;
+
+use crate::descriptor_set::DescriptorSet;
 
 use super::Executable;
-use crate::util::load_descriptor_set_from_path;
 
 #[derive(Clone, Copy, Debug)]
 enum Descriptor {
@@ -52,10 +52,8 @@ pub struct InspectCommand {
 
 impl Executable for InspectCommand {
     fn run(&self) -> anyhow::Result<()> {
-        let file_descriptor_set = load_descriptor_set_from_path(&self.descriptor_set)
-            .context("failed to load descriptor set")?;
-
-        let pool = DescriptorPool::from_file_descriptor_set(file_descriptor_set)?;
+        let ds = DescriptorSet::from_file(&self.descriptor_set)?;
+        let pool = ds.pool();
 
         let name_filter: Box<dyn Fn(&str) -> bool> = if let Some(pat) = &self.name_fileter {
             let pat = regex_lite::Regex::new(pat)?;
@@ -70,10 +68,24 @@ impl Executable for InspectCommand {
                 for s in pool.services() {
                     for m in s.methods() {
                         if name_filter(m.full_name()) {
+                            let cs_tag = if m.is_client_streaming() {
+                                "stream "
+                            } else {
+                                ""
+                            };
+
+                            let ss_tag = if m.is_server_streaming() {
+                                "stream "
+                            } else {
+                                ""
+                            };
+
                             println!(
-                                "{}({}) ({})",
+                                "{}({}{}) ({}{})",
                                 m.full_name(),
+                                cs_tag,
                                 m.input().full_name(),
+                                ss_tag,
                                 m.output().full_name()
                             );
                         }
