@@ -58,7 +58,7 @@ impl Executable for InspectCommand {
         let name_filter: Box<dyn Fn(&str) -> bool> = if let Some(pat) = &self.name_fileter {
             let pat = regex_lite::Regex::new(pat)?;
 
-            Box::new(move |name: &str| pat.is_match(name))
+            Box::new(move |name: &str| pat.find(name).is_some())
         } else {
             Box::new(|_| true)
         };

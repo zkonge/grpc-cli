@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use argh::FromArgs;
 use prost_reflect::DynamicMessage;
@@ -35,6 +36,10 @@ pub struct ServerCommand {
     /// the request data in JSON format. Leave it empty to use the default value.
     #[argh(option, short = 'd')]
     data: Option<String>,
+
+    /// response stream cycle time, in seconds. This option is only valid for server streaming methods.
+    #[argh(option)]
+    stream_cycle: Option<u64>,
 }
 impl Executable for ServerCommand {
     fn run(&self) -> anyhow::Result<()> {
@@ -80,6 +85,7 @@ impl Executable for ServerCommand {
             method_name,
             method.clone(),
             resp_msg,
+            self.stream_cycle.map(Duration::from_secs),
         )?;
 
         new_tokio_rt()

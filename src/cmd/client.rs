@@ -4,7 +4,7 @@ use argh::FromArgs;
 use http::uri::PathAndQuery;
 use prost_reflect::{DeserializeOptions, DynamicMessage};
 use tonic::{
-    Request, Response,
+    Request, Response, Streaming,
     client::Grpc,
     metadata::MetadataKey,
     transport::{Channel, Endpoint},
@@ -88,29 +88,37 @@ impl Executable for ClientCommand {
             None => DynamicMessage::new(req_type.clone()),
         };
 
-        let resp_msg = {
+        let rt = new_tokio_rt();
+        let client = rt.block_on(connect_grpc(self.server.clone()))?;
+        let path = format!(
+            "/{}/{method_name}",
+            if self.disable_package_emission {
+                service.name()
+            } else {
+                service.full_name()
+            }
+        );
+        let codec = DynamicProstCodec::new(req_type.clone(), resp_type.clone());
+
+        if method.is_server_streaming() {
             let task = async move {
-                call_grpc_method(
-                    connect_grpc(self.server.clone()).await?,
-                    format!(
-                        "/{}/{method_name}",
-                        if self.disable_package_emission {
-                            service.name()
-                        } else {
-                            service.full_name()
-                        }
-                    ),
-                    headers,
-                    req_msg,
-                    DynamicProstCodec::new(req_type.clone(), resp_type.clone()),
-                )
-                .await
+                let mut stream =
+                    call_grpc_server_streaming_method(client, path, headers, req_msg, codec)
+                        .await?;
+
+                while let Some(msg) = stream.message().await? {
+                    println!("{}", serde_json::to_string(&msg)?);
+                }
+
+                Ok::<_, anyhow::Error>(())
             };
 
-            new_tokio_rt().block_on(task)?
-        };
+            rt.block_on(task)?;
+        } else {
+            let resp_msg = rt.block_on(call_grpc_method(client, path, headers, req_msg, codec))?;
 
-        println!("{}", serde_json::to_string(&resp_msg)?);
+            println!("{}", serde_json::to_string(&resp_msg)?);
+        }
 
         Ok(())
     }
@@ -146,6 +154,32 @@ async fn call_grpc_method(
 
     // TODO: support streaming
     let resp: Response<DynamicMessage> = client.unary(req, path, codec).await?;
+
+    Ok(resp.into_inner())
+}
+
+async fn call_grpc_server_streaming_method(
+    mut client: Grpc<Channel>,
+    path: String,
+    headers: Vec<(String, String)>,
+    msg: DynamicMessage,
+    codec: DynamicProstCodec,
+) -> anyhow::Result<Streaming<DynamicMessage>> {
+    let path = PathAndQuery::from_maybe_shared(path).unwrap();
+    let mut req = Request::new(msg);
+    for (key, value) in headers {
+        // TODO: handle binary metadata
+        req.metadata_mut().insert(
+            MetadataKey::from_bytes(key.as_bytes()).unwrap(),
+            value.parse().unwrap(),
+        );
+    }
+
+    client.ready().await?;
+
+    // TODO: support streaming
+    let resp: Response<Streaming<DynamicMessage>> =
+        client.server_streaming(req, path, codec).await?;
 
     Ok(resp.into_inner())
 }

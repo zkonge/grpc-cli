@@ -2,14 +2,18 @@ use std::{
     convert::Infallible,
     future::{Ready, ready},
     task::{Context, Poll},
+    time::Duration,
 };
 
 use futures_util::{
+    StreamExt,
     future::BoxFuture,
-    stream::{self, Once},
+    stream::{self, BoxStream, pending},
 };
 use http::{Request, Response, Uri, header::CONTENT_TYPE};
 use prost_reflect::{DynamicMessage, MethodDescriptor};
+use tokio::time;
+use tokio_stream::wrappers::IntervalStream;
 use tonic::{
     Status,
     body::Body as TonicBody,
@@ -38,16 +42,34 @@ impl UnaryService<DynamicMessage> for InnerUnaryService {
 
 struct InnerServerStreamingService {
     resp_body: DynamicMessage,
+
+    stream_cycle: Option<Duration>,
 }
+
+type StreamItem = tonic::Result<DynamicMessage>;
 
 impl ServerStreamingService<DynamicMessage> for InnerServerStreamingService {
     type Response = DynamicMessage;
-    type ResponseStream = Once<Ready<Result<Self::Response, Status>>>;
-    type Future = Ready<Result<tonic::Response<Self::ResponseStream>, Status>>;
+    type ResponseStream = BoxStream<'static, StreamItem>;
+    type Future = BoxFuture<'static, tonic::Result<tonic::Response<Self::ResponseStream>>>;
 
     fn call(&mut self, _: tonic::Request<DynamicMessage>) -> Self::Future {
-        let stream = stream::once(ready(Ok(self.resp_body.clone())));
-        ready(Ok(tonic::Response::new(stream)))
+        let resp_body = self.resp_body.clone();
+        let stream_cycle = self.stream_cycle.clone();
+        Box::pin(async move {
+            let stream = match stream_cycle {
+                Some(cycle) => {
+                    let s = IntervalStream::new(time::interval(cycle))
+                        .map(move |_| Ok(resp_body.clone()))
+                        .boxed();
+                    return Ok(tonic::Response::new(s));
+                }
+                None => stream::once(ready(Ok(resp_body.clone())))
+                    .chain(pending())
+                    .boxed(),
+            };
+            Ok(tonic::Response::new(stream))
+        })
     }
 }
 
@@ -57,6 +79,8 @@ pub struct StaticService {
     served_uri: Uri,
     method_type: MethodDescriptor,
     response: DynamicMessage,
+
+    stream_cycle: Option<Duration>,
 }
 
 impl StaticService {
@@ -66,6 +90,7 @@ impl StaticService {
         method: &str,
         method_type: MethodDescriptor,
         response: DynamicMessage,
+        stream_cycle: Option<Duration>,
     ) -> anyhow::Result<Self> {
         let served_uri = Uri::from_maybe_shared(format!("/{service}/{method}"))?;
 
@@ -74,6 +99,8 @@ impl StaticService {
             served_uri,
             method_type,
             response,
+
+            stream_cycle,
         })
     }
 }
@@ -110,6 +137,8 @@ where
         if self.method_type.is_server_streaming() {
             let s = InnerServerStreamingService {
                 resp_body: self.response.clone(),
+
+                stream_cycle: self.stream_cycle.clone(),
             };
 
             Box::pin(async move { Ok(Grpc::new(codec).server_streaming(s, req).await) })
