@@ -55,7 +55,7 @@ impl ServerStreamingService<DynamicMessage> for InnerServerStreamingService {
 
     fn call(&mut self, _: tonic::Request<DynamicMessage>) -> Self::Future {
         let resp_body = self.resp_body.clone();
-        let stream_cycle = self.stream_cycle.clone();
+        let stream_cycle = self.stream_cycle;
         Box::pin(async move {
             let stream = match stream_cycle {
                 Some(cycle) => {
@@ -138,7 +138,7 @@ where
             let s = InnerServerStreamingService {
                 resp_body: self.response.clone(),
 
-                stream_cycle: self.stream_cycle.clone(),
+                stream_cycle: self.stream_cycle,
             };
 
             Box::pin(async move { Ok(Grpc::new(codec).server_streaming(s, req).await) })

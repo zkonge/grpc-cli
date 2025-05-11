@@ -3,9 +3,8 @@ use std::{path::PathBuf, str::FromStr};
 use argh::FromArgs;
 use prost_reflect::Kind;
 
-use crate::descriptor_set::DescriptorSet;
-
 use super::Executable;
+use crate::descriptor_set::DescriptorSet;
 
 #[derive(Clone, Copy, Debug)]
 enum Descriptor {
@@ -58,7 +57,7 @@ impl Executable for InspectCommand {
         let name_filter: Box<dyn Fn(&str) -> bool> = if let Some(pat) = &self.name_fileter {
             let pat = regex_lite::Regex::new(pat)?;
 
-            Box::new(move |name: &str| pat.find(name).is_some())
+            Box::new(move |name: &str| pat.is_match(name))
         } else {
             Box::new(|_| true)
         };

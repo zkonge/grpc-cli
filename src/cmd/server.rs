@@ -1,17 +1,14 @@
-use std::net::SocketAddr;
-use std::path::PathBuf;
-use std::time::Duration;
+use std::{net::SocketAddr, path::PathBuf, time::Duration};
 
 use argh::FromArgs;
 use prost_reflect::DynamicMessage;
 use tonic::transport::Server;
 
-use crate::codec::DynamicProstCodec;
-use crate::descriptor_set::DescriptorSet;
-use crate::static_server::StaticService;
-use crate::util::new_tokio_rt;
-
 use super::Executable;
+use crate::{
+    codec::DynamicProstCodec, descriptor_set::DescriptorSet, static_server::StaticService,
+    util::new_tokio_rt,
+};
 
 /// Print the version of the application.
 #[derive(FromArgs, Clone, Debug)]

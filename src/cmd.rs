@@ -1,9 +1,9 @@
 mod client;
 mod compile;
 mod inspect;
+mod json;
 mod server;
 mod version;
-mod json;
 
 use argh::FromArgs;
 

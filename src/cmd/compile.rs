@@ -2,9 +2,8 @@ use std::{iter::once, path::PathBuf};
 
 use argh::FromArgs;
 
-use crate::descriptor_set::DescriptorSet;
-
 use super::Executable;
+use crate::descriptor_set::DescriptorSet;
 
 /// Compile the protobuf files into a descriptor set file.
 #[derive(FromArgs, Clone, Debug)]
@@ -32,10 +31,7 @@ pub struct CompileCommand {
 
 impl Executable for CompileCommand {
     fn run(&self) -> anyhow::Result<()> {
-        let ds = DescriptorSet::compile(
-            once(&self.file).chain(&self.more_files),
-            &self.includes,
-        )?;
+        let ds = DescriptorSet::compile(once(&self.file).chain(&self.more_files), &self.includes)?;
 
         ds.to_file(&self.output).map_err(Into::into)
     }
