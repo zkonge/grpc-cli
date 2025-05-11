@@ -1,17 +1,20 @@
 use std::{
     convert::Infallible,
-    future::{ready, Ready},
-    task::{Context, Poll}, thread::sleep, time::Duration,
+    future::{Ready, ready},
+    task::{Context, Poll},
 };
 
-use futures_util::future::BoxFuture;
+use futures_util::{
+    future::BoxFuture,
+    stream::{self, Once},
+};
 use http::{Request, Response, Uri, header::CONTENT_TYPE};
-use prost_reflect::DynamicMessage;
+use prost_reflect::{DynamicMessage, MethodDescriptor};
 use tonic::{
     Status,
     body::Body as TonicBody,
     metadata::GRPC_CONTENT_TYPE,
-    server::{Grpc, UnaryService},
+    server::{Grpc, ServerStreamingService, UnaryService},
 };
 use tower_service::Service;
 
@@ -20,10 +23,39 @@ use crate::codec::DynamicProstCodec;
 type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 type BoxResultFuture<T, E> = BoxFuture<'static, Result<T, E>>;
 
+struct InnerUnaryService {
+    resp_body: DynamicMessage,
+}
+
+impl UnaryService<DynamicMessage> for InnerUnaryService {
+    type Response = DynamicMessage;
+    type Future = Ready<Result<tonic::Response<Self::Response>, Status>>;
+
+    fn call(&mut self, _: tonic::Request<DynamicMessage>) -> Self::Future {
+        ready(Ok(tonic::Response::new(self.resp_body.clone())))
+    }
+}
+
+struct InnerServerStreamingService {
+    resp_body: DynamicMessage,
+}
+
+impl ServerStreamingService<DynamicMessage> for InnerServerStreamingService {
+    type Response = DynamicMessage;
+    type ResponseStream = Once<Ready<Result<Self::Response, Status>>>;
+    type Future = Ready<Result<tonic::Response<Self::ResponseStream>, Status>>;
+
+    fn call(&mut self, _: tonic::Request<DynamicMessage>) -> Self::Future {
+        let stream = stream::once(ready(Ok(self.resp_body.clone())));
+        ready(Ok(tonic::Response::new(stream)))
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct StaticService {
     codec: DynamicProstCodec,
     served_uri: Uri,
+    method_type: MethodDescriptor,
     response: DynamicMessage,
 }
 
@@ -32,6 +64,7 @@ impl StaticService {
         codec: DynamicProstCodec,
         service: &str,
         method: &str,
+        method_type: MethodDescriptor,
         response: DynamicMessage,
     ) -> anyhow::Result<Self> {
         let served_uri = Uri::from_maybe_shared(format!("/{service}/{method}"))?;
@@ -39,6 +72,7 @@ impl StaticService {
         Ok(Self {
             codec,
             served_uri,
+            method_type,
             response,
         })
     }
@@ -71,24 +105,20 @@ where
             return Box::pin(ready(Ok(response)));
         }
 
-        struct InnerService {
-            resp_body: DynamicMessage,
-        }
-
-        impl UnaryService<DynamicMessage> for InnerService {
-            type Response = DynamicMessage;
-            type Future = Ready<Result<tonic::Response<Self::Response>, Status>>;
-
-            fn call(&mut self, _: tonic::Request<DynamicMessage>) -> Self::Future {
-                ready(Ok(tonic::Response::new(self.resp_body.clone())))
-            }
-        }
-
         let codec = self.codec.clone();
-        let inner_service = InnerService {
-            resp_body: self.response.clone(),
-        };
 
-        Box::pin(async move { Ok(Grpc::new(codec).unary(inner_service, req).await) })
+        if self.method_type.is_server_streaming() {
+            let s = InnerServerStreamingService {
+                resp_body: self.response.clone(),
+            };
+
+            Box::pin(async move { Ok(Grpc::new(codec).server_streaming(s, req).await) })
+        } else {
+            let s = InnerUnaryService {
+                resp_body: self.response.clone(),
+            };
+
+            Box::pin(async move { Ok(Grpc::new(codec).unary(s, req).await) })
+        }
     }
 }

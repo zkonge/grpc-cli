@@ -145,7 +145,7 @@ async fn call_grpc_method(
     client.ready().await?;
 
     // TODO: support streaming
-    let resp: Response<DynamicMessage> = dbg!(client.unary(req, path, codec).await)?;
+    let resp: Response<DynamicMessage> = client.unary(req, path, codec).await?;
 
     Ok(resp.into_inner())
 }

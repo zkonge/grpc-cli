@@ -70,13 +70,15 @@ impl Executable for ServerCommand {
         };
 
         let svc = StaticService::new(
-            DynamicProstCodec::new(req_type, resp_type),
+            // yes, this is reversed.
+            DynamicProstCodec::new(resp_type, req_type),
             if self.disable_package_emission {
                 service.name()
             } else {
                 service.full_name()
             },
             method_name,
+            method.clone(),
             resp_msg,
         )?;
 
