@@ -25,7 +25,7 @@ use crate::{
     codec::DynamicProstCodec, descriptor_set::DescriptorSet, tls::NullVerifier, util::new_tokio_rt,
 };
 
-/// Print the version of the application.
+/// acting as a client to call a gRPC method
 #[derive(FromArgs, Clone, Debug)]
 #[argh(subcommand, name = "client")]
 pub struct ClientCommand {

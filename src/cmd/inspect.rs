@@ -28,7 +28,7 @@ impl FromStr for Descriptor {
     }
 }
 
-/// Print detailed protobuf type information from the descriptor set.
+/// print detailed protobuf type info from the descriptor set
 #[derive(FromArgs, Clone, Debug)]
 #[argh(subcommand, name = "inspect")]
 pub struct InspectCommand {

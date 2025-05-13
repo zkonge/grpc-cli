@@ -10,7 +10,7 @@ use crate::{
     util::new_tokio_rt,
 };
 
-/// Print the version of the application.
+/// acting as a server to handle a gRPC method
 #[derive(FromArgs, Clone, Debug)]
 #[argh(subcommand, name = "server")]
 pub struct ServerCommand {

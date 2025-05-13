@@ -5,7 +5,7 @@ use argh::FromArgs;
 use super::Executable;
 use crate::descriptor_set::DescriptorSet;
 
-/// Compile the protobuf files into a descriptor set file.
+/// compile the protobuf files into a descriptor set file
 #[derive(FromArgs, Clone, Debug)]
 #[argh(subcommand, name = "compile")]
 pub struct CompileCommand {

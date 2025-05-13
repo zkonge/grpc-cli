@@ -11,7 +11,7 @@ use prost_reflect::DynamicMessage;
 use super::Executable;
 use crate::descriptor_set::DescriptorSet;
 
-/// Print the version of the application.
+/// convert data between protobuf binary data and JSON
 #[derive(FromArgs, Clone, Debug)]
 #[argh(subcommand, name = "json")]
 pub struct JsonCommand {
