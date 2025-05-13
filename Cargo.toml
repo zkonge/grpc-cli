@@ -24,3 +24,8 @@ tokio-stream = "0.1.17"
 tonic = "0.13.1"
 tower = { version = "0.5.2", default-features = false, features = ["util"] }
 tower-service = "0.3.3"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
