@@ -32,7 +32,7 @@ impl FromStr for Descriptor {
 #[derive(FromArgs, Clone, Debug)]
 #[argh(subcommand, name = "inspect")]
 pub struct InspectCommand {
-    /// the descriptor set file to inspect, if the file extension is `.gz`, it will be decompressed.
+    /// the descriptor set file to inspect
     #[argh(positional)]
     descriptor_set: PathBuf,
 

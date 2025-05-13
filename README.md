@@ -1,4 +1,4 @@
-# grpc-cli
+# grpc-cli (WIP)
 Useful functions for interacting with gRPC, including:
   * dummy server (only one method each running)
   * client

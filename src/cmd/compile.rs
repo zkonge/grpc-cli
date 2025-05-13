@@ -23,7 +23,6 @@ pub struct CompileCommand {
     includes: Vec<PathBuf>,
 
     /// the output file path for the compiled protobuf descriptor set file.
-    /// If the path ends with `.gz`, the output will be compressed with gzip.
     /// The default is `output.desc`.
     #[argh(option, short = 'o', default = r#""output.desc".into()"#)]
     output: PathBuf,
