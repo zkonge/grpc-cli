@@ -3,6 +3,7 @@ mod codec;
 mod descriptor_set;
 mod json;
 mod static_server;
+mod tls;
 mod util;
 
 use argh::FromArgs;
